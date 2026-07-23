@@ -5,6 +5,11 @@
 最终模型保存及 CSV 汇总。当前首批测试场景使用 Qwen3，后续可继续加入
 Kimi、Llama 等模型。
 
+## 文档入口
+
+- [脚本参数操作手册](PARAMETER_GUIDE.md)：逐项解释训练、8卡场景、评测和汇总参数
+- [8卡2000步测试手册](THREE_SCENARIO_8GPU_2000STEP_GUIDE.md)：三个既定场景的执行流程
+
 ## 当前场景
 
 - Qwen3-32B LoRA：1/2/4/8 卡扩展测试
@@ -24,6 +29,7 @@ run_scaling.sh                      1/2/4/8卡扩展测试
 merge_gpu_samples.py                合并GPU采样与训练指标
 summarize.py                        生成CSV汇总表
 evaluate_model.py                   对比基础模型与最终模型的测试集loss/PPL
+PARAMETER_GUIDE.md                  全部脚本参数操作手册
 setup_rocm_container.sh             创建ROCm PyTorch容器
 configs/zero2_bf16.json             DeepSpeed ZeRO-2配置
 configs/zero3_bf16.json             DeepSpeed ZeRO-3配置
