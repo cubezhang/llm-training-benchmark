@@ -98,17 +98,23 @@ docker run -d \
   sleep infinity
 ```
 
-安装依赖：
+进入容器：
 
 ```bash
-docker exec qwen-scaling-rocm \
-  python3 -m pip install -r /workspace/requirements-full.txt
+docker exec -it qwen-scaling-rocm bash
+```
+
+从这里开始，除非特别标明，后续命令全部在容器内执行：
+
+```bash
+cd /workspace
+python3 -m pip install -r requirements-full.txt
 ```
 
 检查环境：
 
 ```bash
-docker exec qwen-scaling-rocm python3 -c \
+python3 -c \
   "import torch,transformers,datasets,deepspeed,peft; print(torch.__version__, torch.cuda.device_count())"
 ```
 
@@ -116,11 +122,14 @@ docker exec qwen-scaling-rocm python3 -c \
 
 ### 2.3 容器已经存在时
 
+以下两条在宿主机执行：
+
 ```bash
 docker start qwen-scaling-rocm
+docker exec -it qwen-scaling-rocm bash
 ```
 
-检查GPU：
+进入容器后检查GPU：
 
 ```bash
 rocm-smi --showproductname --showuse --showmemuse
@@ -133,21 +142,21 @@ rocm-smi --showproductname --showuse --showmemuse
 串行脚本：
 
 ```text
-/volumes/oss5/models/qwen-scaling/run_8gpu_2000step_plan.sh
+/workspace/run_8gpu_2000step_plan.sh
 ```
 
 添加执行权限：
 
 ```bash
-chmod +x /volumes/oss5/models/qwen-scaling/run_8gpu_case.sh
-chmod +x /volumes/oss5/models/qwen-scaling/run_8gpu_2000step_plan.sh
+cd /workspace
+chmod +x run_8gpu_case.sh run_8gpu_2000step_plan.sh
 ```
 
 后台启动：
 
 ```bash
-docker exec -d qwen-scaling-rocm \
-  bash /workspace/run_8gpu_2000step_plan.sh
+mkdir -p /workspace/timing
+nohup bash run_8gpu_2000step_plan.sh > timing/plan-launcher.log 2>&1 &
 ```
 
 脚本将按以下顺序执行：
@@ -162,13 +171,13 @@ docker exec -d qwen-scaling-rocm \
 查看当前场景：
 
 ```bash
-cat /volumes/oss5/models/qwen-scaling/timing/qwen-three-scenarios-8gpu-2000steps/status.txt
+cat /workspace/timing/qwen-three-scenarios-8gpu-2000steps/status.txt
 ```
 
 查看训练日志：
 
 ```bash
-tail -f /volumes/oss5/models/qwen-scaling/timing/qwen-three-scenarios-8gpu-2000steps/console.log
+tail -f /workspace/timing/qwen-three-scenarios-8gpu-2000steps/console.log
 ```
 
 查看GPU：
@@ -185,51 +194,43 @@ watch -n 5 rocm-smi --showuse --showmemuse
 
 ```bash
 ROOT=/workspace/timing/qwen-three-scenarios-8gpu-2000steps
+mkdir -p "${ROOT}"
 ```
 
 ### 4.1 场景1：Qwen3-32B LoRA 8卡
 
 ```bash
-docker exec -d \
-  -e MAX_STEPS=2000 \
-  -e WARMUP_STEPS=100 \
-  -e MEASURE_WINDOW=1900 \
-  qwen-scaling-rocm \
+nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
   bash /workspace/run_8gpu_case.sh \
   scenario1-qwen3-32b-lora-8gpu \
   /models/Qwen3-32B \
   /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario1/Qwen3-32B-LoRA/8gpu \
-  lora 8 none 32.8 30018
+  lora 8 none 32.8 30018 \
+  > ${ROOT}/scenario1-launcher.log 2>&1 &
 ```
 
 ### 4.2 场景2：Qwen3-30B-A3B LoRA 8卡
 
 ```bash
-docker exec -d \
-  -e MAX_STEPS=2000 \
-  -e WARMUP_STEPS=100 \
-  -e MEASURE_WINDOW=1900 \
-  qwen-scaling-rocm \
+nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
   bash /workspace/run_8gpu_case.sh \
   scenario2-qwen3-30b-a3b-lora-8gpu \
   /models/Qwen3-30B-A3B \
   /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario2/Qwen3-30B-A3B-LoRA/8gpu \
-  lora 8 none 3.3 30028
+  lora 8 none 3.3 30028 \
+  > ${ROOT}/scenario2-launcher.log 2>&1 &
 ```
 
 ### 4.3 场景3：Qwen3-32B全参数 8卡
 
 ```bash
-docker exec -d \
-  -e MAX_STEPS=2000 \
-  -e WARMUP_STEPS=100 \
-  -e MEASURE_WINDOW=1900 \
-  qwen-scaling-rocm \
+nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
   bash /workspace/run_8gpu_case.sh \
   scenario3-qwen3-32b-full-8gpu \
   /models/Qwen3-32B \
   /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario3/Qwen3-32B-full/8gpu \
-  full 2 configs/zero3_bf16.json 32.8 30038
+  full 2 configs/zero3_bf16.json 32.8 30038 \
+  > ${ROOT}/scenario3-launcher.log 2>&1 &
 ```
 
 每个单独命令完成后都会生成：
@@ -245,8 +246,8 @@ final_model/
 
 `final_model/` 是最终训练成果。LoRA 场景保存 Adapter 和 tokenizer，加载时仍需
 对应的基础模型；全参数 ZeRO-3 场景保存聚合后的 BF16 模型权重和 tokenizer。
-默认不保存中间 checkpoint。如某次只做性能测试，可在 `docker exec` 中增加
-`-e SAVE_FINAL_MODEL=0`。
+默认不保存中间 checkpoint。如某次只做性能测试，在容器内执行任务前设置
+`SAVE_FINAL_MODEL=0`，或在`nohup env`后增加`SAVE_FINAL_MODEL=0`。
 
 ## 5. 汇总结果
 

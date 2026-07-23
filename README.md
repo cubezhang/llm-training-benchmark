@@ -57,6 +57,15 @@ cd /volumes/oss5/models/qwen-scaling
 bash setup_rocm_container.sh
 ```
 
+容器创建或启动是唯一需要在宿主机完成的步骤。之后进入容器：
+
+```bash
+docker exec -it llm-training-rocm bash
+cd /workspace
+```
+
+下文所有训练、评测、汇总和日志命令均在容器内执行。
+
 首次运行需要缓存 WikiText-103。网络受限时可设置：
 
 ```bash
@@ -66,8 +75,9 @@ export HF_ENDPOINT=https://hf-mirror.com
 ## 运行8卡2000步串行计划
 
 ```bash
-docker exec -d qwen-scaling-rocm \
-  bash /workspace/run_8gpu_2000step_plan.sh
+cd /workspace
+mkdir -p timing
+nohup bash run_8gpu_2000step_plan.sh > timing/plan-launcher.log 2>&1 &
 ```
 
 单独运行某个场景时统一使用 `run_8gpu_case.sh`，这样训练指标、loss、GPU利用率

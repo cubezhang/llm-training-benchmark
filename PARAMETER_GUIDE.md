@@ -2,6 +2,22 @@
 
 本文档说明项目中训练、8卡场景、扩展测试、最终模型评测和结果汇总脚本的参数。
 
+## 0. 统一操作方式
+
+创建或启动容器需要在宿主机执行。容器启动后，在宿主机只执行一次：
+
+```bash
+docker exec -it llm-training-rocm bash
+```
+
+进入容器后：
+
+```bash
+cd /workspace
+```
+
+本文后续所有训练、评测、汇总、日志和GPU查看命令均在容器内执行。
+
 ## 1. 最常用入口：`run_8gpu_case.sh`
 
 调用格式：
@@ -46,33 +62,35 @@ bash /workspace/run_8gpu_case.sh \
 ### 10步检查
 
 ```bash
-docker exec -d \
-  -e MAX_STEPS=10 \
-  -e WARMUP_STEPS=2 \
-  -e MEASURE_WINDOW=8 \
-  -e SAVE_FINAL_MODEL=0 \
-  llm-training-rocm \
-  bash /workspace/run_8gpu_case.sh \
+mkdir -p /workspace/timing
+nohup env \
+  MAX_STEPS=10 \
+  WARMUP_STEPS=2 \
+  MEASURE_WINDOW=8 \
+  SAVE_FINAL_MODEL=0 \
+  bash run_8gpu_case.sh \
   qwen3-32b-lora-8gpu-smoke \
   /models/Qwen3-32B \
   /workspace/timing/qwen3-32b-lora-8gpu-smoke \
-  lora 8 none 32.8 30118
+  lora 8 none 32.8 30118 \
+  > /workspace/timing/qwen3-32b-lora-8gpu-smoke-launcher.log 2>&1 &
 ```
 
 ### 2000步正式训练
 
 ```bash
-docker exec -d \
-  -e MAX_STEPS=2000 \
-  -e WARMUP_STEPS=100 \
-  -e MEASURE_WINDOW=1900 \
-  -e SAVE_FINAL_MODEL=1 \
-  llm-training-rocm \
-  bash /workspace/run_8gpu_case.sh \
+mkdir -p /workspace/timing
+nohup env \
+  MAX_STEPS=2000 \
+  WARMUP_STEPS=100 \
+  MEASURE_WINDOW=1900 \
+  SAVE_FINAL_MODEL=1 \
+  bash run_8gpu_case.sh \
   qwen3-32b-lora-8gpu-2000steps \
   /models/Qwen3-32B \
   /workspace/timing/qwen3-32b-lora-8gpu-2000steps \
-  lora 8 none 32.8 30118
+  lora 8 none 32.8 30118 \
+  > /workspace/timing/qwen3-32b-lora-8gpu-2000steps-launcher.log 2>&1 &
 ```
 
 `MICRO_BATCH=8`时，单卡有效batch 32，所以梯度累积为`32/8=4`；8卡Global
@@ -125,13 +143,12 @@ batch为`32×8=256`。如果显存不足可降低MICRO_BATCH，但同一组扩�
 示例：
 
 ```bash
-docker exec \
-  -e MODELS=/models/Qwen3-32B \
-  -e GPU_COUNTS="1 2 4 8" \
-  -e TRAIN_MODE=lora \
-  -e MICRO_BATCH=8 \
-  -e MAX_STEPS=2000 \
-  llm-training-rocm bash /workspace/run_scaling.sh
+MODELS=/models/Qwen3-32B \
+GPU_COUNTS="1 2 4 8" \
+TRAIN_MODE=lora \
+MICRO_BATCH=8 \
+MAX_STEPS=2000 \
+bash run_scaling.sh
 ```
 
 ## 4. 最终模型评测：`evaluate_model.py`
@@ -151,7 +168,7 @@ docker exec \
 LoRA评测示例：
 
 ```bash
-docker exec llm-training-rocm python /workspace/evaluate_model.py \
+python evaluate_model.py \
   --base-model /models/Qwen3-32B \
   --trained-model /workspace/timing/qwen3-32b-lora-8gpu-2000steps/final_model \
   --train-mode lora \
@@ -179,7 +196,7 @@ docker exec llm-training-rocm python /workspace/evaluate_model.py \
 示例：
 
 ```bash
-docker exec llm-training-rocm python /workspace/summarize.py \
+python summarize.py \
   --runs-dir /workspace/timing \
   --output /workspace/timing/summary.csv \
   --table-output /workspace/timing/summary_table.csv
@@ -202,7 +219,7 @@ docker exec llm-training-rocm python /workspace/summarize.py \
 ## 7. 查看运行状态
 
 ```bash
-tail -f timing/qwen3-32b-lora-8gpu-2000steps/console.log
-cat timing/qwen3-32b-lora-8gpu-2000steps/status.txt
+tail -f /workspace/timing/qwen3-32b-lora-8gpu-2000steps/console.log
+cat /workspace/timing/qwen3-32b-lora-8gpu-2000steps/status.txt
 watch -n 2 rocm-smi
 ```
