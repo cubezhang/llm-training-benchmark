@@ -21,6 +21,7 @@ steps.jsonl
 metrics.json
 summary.csv
 summary_table.csv
+evaluation*.json
 *.safetensors
 *.bin
 *.pt

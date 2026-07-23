@@ -23,6 +23,7 @@ run_8gpu_2000step_plan.sh           三个场景2000步串行测试
 run_scaling.sh                      1/2/4/8卡扩展测试
 merge_gpu_samples.py                合并GPU采样与训练指标
 summarize.py                        生成CSV汇总表
+evaluate_model.py                   对比基础模型与最终模型的测试集loss/PPL
 setup_rocm_container.sh             创建ROCm PyTorch容器
 configs/zero2_bf16.json             DeepSpeed ZeRO-2配置
 configs/zero3_bf16.json             DeepSpeed ZeRO-3配置
@@ -97,3 +98,21 @@ python summarize.py \
 ```
 
 模型权重、数据集缓存、训练结果和服务器凭据不会提交到Git仓库。
+
+## 最终模型效果评测
+
+LoRA训练完成后，在WikiText-103测试集上对比基础模型与最终Adapter：
+
+```bash
+python evaluate_model.py \
+  --base-model /models/Qwen3-32B \
+  --trained-model /workspace/timing/qwen3-32b-lora-8gpu-2000steps/final_model \
+  --train-mode lora \
+  --split test \
+  --seq-len 2048 \
+  --max-eval-tokens 131072 \
+  --output /workspace/timing/qwen3-32b-lora-8gpu-2000steps/evaluation.json
+```
+
+`perplexity_improvement_percent > 0` 且 `improved=true` 表示最终模型在未参与训练的
+测试集上优于基础模型。评测应与训练使用相同的tokenizer和序列长度。
