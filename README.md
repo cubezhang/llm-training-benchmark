@@ -54,7 +54,7 @@ THREE_SCENARIO_8GPU_2000STEP_GUIDE.md 详细操作手册
 
 ```bash
 cd /volumes/oss5/models/qwen-scaling
-bash setup_rocm_container.sh
+CONTAINER_NAME=llm-training-rocm bash setup_rocm_container.sh
 ```
 
 容器创建或启动是唯一需要在宿主机完成的步骤。之后进入容器：
