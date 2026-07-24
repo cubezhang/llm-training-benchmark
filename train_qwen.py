@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 
 import torch
-from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -24,11 +23,18 @@ from transformers import (
     set_seed,
 )
 
+from dataset_utils import load_wikitext
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--model", required=True)
     p.add_argument("--output-dir", required=True)
+    p.add_argument(
+        "--dataset-dir",
+        default=os.environ.get("DATASET_DIR"),
+        help="Local wikitext-103-raw-v1 parquet directory; omit to use Hugging Face.",
+    )
     p.add_argument("--seq-len", type=int, default=2048)
     p.add_argument("--micro-batch", type=int, default=1)
     p.add_argument("--local-batch", type=int, default=32,
@@ -182,8 +188,8 @@ class StepMetrics(TrainerCallback):
         )
 
 
-def build_dataset(tokenizer, seq_len: int):
-    raw = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1", split="train")
+def build_dataset(tokenizer, seq_len: int, dataset_dir: str | None = None):
+    raw = load_wikitext("train", dataset_dir)
     eos = tokenizer.eos_token or ""
 
     def tokenize(batch):
@@ -212,7 +218,7 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    dataset = build_dataset(tokenizer, args.seq_len)
+    dataset = build_dataset(tokenizer, args.seq_len, args.dataset_dir)
 
     # Construct this before from_pretrained: Transformers uses the DeepSpeed
     # configuration during model loading (important for ZeRO-3 initialization).
@@ -286,6 +292,11 @@ def main() -> None:
                 json.dumps(
                     {
                         "base_model": args.model,
+                        "dataset": (
+                            str(Path(args.dataset_dir).resolve())
+                            if args.dataset_dir
+                            else "Salesforce/wikitext/wikitext-103-raw-v1"
+                        ),
                         "train_mode": args.train_mode,
                         "max_steps": args.max_steps,
                         "seq_len": args.seq_len,

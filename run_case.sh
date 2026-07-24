@@ -30,6 +30,10 @@ LOCAL_BATCH="${LOCAL_BATCH:-32}"
 SAVE_FINAL_MODEL="${SAVE_FINAL_MODEL:-1}"
 GPU_SAMPLE_INTERVAL="${GPU_SAMPLE_INTERVAL:-10}"
 THEORETICAL_TFLOPS_PER_DEVICE="${THEORETICAL_TFLOPS_PER_DEVICE:-${PEAK_TFLOPS:-}}"
+DATASET_DIR="${DATASET_DIR:-}"
+if [[ -z "${DATASET_DIR}" && -d /workspace/datasets/wikitext-103-raw-v1 ]]; then
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1
+fi
 
 if (( GPU_COUNT < 1 )); then
   echo "GPU_COUNT must be at least 1" >&2
@@ -91,6 +95,9 @@ cmd=(
 
 if [[ -n "${THEORETICAL_TFLOPS_PER_DEVICE}" ]]; then
   cmd+=(--theoretical-tflops-per-device "${THEORETICAL_TFLOPS_PER_DEVICE}")
+fi
+if [[ -n "${DATASET_DIR}" ]]; then
+  cmd+=(--dataset-dir "${DATASET_DIR}")
 fi
 if [[ "${SAVE_FINAL_MODEL}" == "0" ]]; then
   cmd+=(--no-save-final-model)

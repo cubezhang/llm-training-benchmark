@@ -23,6 +23,7 @@ Kimi、Llama 等模型。
 
 ```text
 train_qwen.py                       训练入口与性能指标记录
+dataset_utils.py                    本地Parquet/Hugging Face数据加载
 run_case.sh                         通用单场景执行器（由其他脚本调用）
 run_scaling.sh                      统一训练入口，支持任意GPU数量
 run_8gpu_case.sh                    当前三个场景的8卡短命令入口
@@ -98,7 +99,9 @@ export HF_ENDPOINT=https://hf-mirror.com
 /workspace/datasets/wikitext-103-raw-v1/
 ```
 
-本地 Parquet 加载方式见[参数操作手册](PARAMETER_GUIDE.md#72-浏览器下载并上传服务器)。
+标准目录存在时，训练脚本会自动读取本地 Parquet，不再访问 Hugging Face；也可以
+通过 `DATASET_DIR` 指定其他目录。完整方式见
+[参数操作手册](PARAMETER_GUIDE.md#72-浏览器下载并上传服务器)。
 
 如果服务器可以通过镜像访问 Hugging Face，也可以用以下单进程命令准备缓存：
 
@@ -133,6 +136,7 @@ PY
 ```bash
 HF_HOME=/workspace/hf-cache \
 HF_DATASETS_CACHE=/workspace/hf-cache/datasets \
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
 HF_DATASETS_OFFLINE=1 \
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
@@ -201,6 +205,7 @@ LoRA训练完成后，在WikiText-103测试集上对比基础模型与最终Adap
 python evaluate_model.py \
   --base-model /models/Qwen3-32B \
   --trained-model /workspace/timing/qwen3-32b-lora-8gpu-2000steps/final_model \
+  --dataset-dir /workspace/datasets/wikitext-103-raw-v1 \
   --train-mode lora \
   --split test \
   --seq-len 2048 \

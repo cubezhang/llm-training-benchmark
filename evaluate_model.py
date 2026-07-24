@@ -7,18 +7,25 @@ import argparse
 import gc
 import json
 import math
+import os
 import time
 from pathlib import Path
 
 import torch
-from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from dataset_utils import load_wikitext
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-model", required=True)
     parser.add_argument("--trained-model", required=True)
+    parser.add_argument(
+        "--dataset-dir",
+        default=os.environ.get("DATASET_DIR"),
+        help="Local wikitext-103-raw-v1 parquet directory; omit to use Hugging Face.",
+    )
     parser.add_argument("--train-mode", choices=("lora", "full"), required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--split", default="test", choices=("validation", "test"))
@@ -35,10 +42,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_eval_blocks(tokenizer, split: str, seq_len: int,
-                      max_eval_tokens: int) -> list[list[int]]:
-    dataset = load_dataset(
-        "Salesforce/wikitext", "wikitext-103-raw-v1", split=split
-    )
+                      max_eval_tokens: int,
+                      dataset_dir: str | None = None) -> list[list[int]]:
+    dataset = load_wikitext(split, dataset_dir)
     eos = tokenizer.eos_token or ""
     text = eos.join(row for row in dataset["text"] if row.strip())
     token_ids = tokenizer(text, add_special_tokens=False)["input_ids"]
@@ -105,7 +111,7 @@ def main() -> None:
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     blocks = build_eval_blocks(
-        tokenizer, args.split, args.seq_len, args.max_eval_tokens
+        tokenizer, args.split, args.seq_len, args.max_eval_tokens, args.dataset_dir
     )
 
     print("Loading base model", flush=True)
@@ -134,7 +140,11 @@ def main() -> None:
         / base_metrics["perplexity"]
     )
     result = {
-        "dataset": "Salesforce/wikitext/wikitext-103-raw-v1",
+        "dataset": (
+            str(Path(args.dataset_dir).resolve())
+            if args.dataset_dir
+            else "Salesforce/wikitext/wikitext-103-raw-v1"
+        ),
         "split": args.split,
         "seq_len": args.seq_len,
         "max_eval_tokens": args.max_eval_tokens,

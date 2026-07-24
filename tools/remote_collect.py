@@ -18,6 +18,7 @@ FILES = [
     "README.md",
     "requirements.txt",
     "requirements-full.txt",
+    "dataset_utils.py",
     "run_case.sh",
     "run_scaling.sh",
     "run_200step_plan.sh",

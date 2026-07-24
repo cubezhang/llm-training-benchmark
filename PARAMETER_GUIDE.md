@@ -48,6 +48,7 @@ GPU_COUNTS="1 2 4 8" bash run_scaling.sh
 |---|---|---|
 | `GPU_COUNTS` | `1 2 4 8` | 空格分隔的GPU数量，可以只填一个 |
 | `MODELS` | 两个Qwen3模型 | 模型路径，多个模型使用空格分隔 |
+| `DATASET_DIR` | 自动检测标准目录 | 本地wikitext-103-raw-v1 Parquet目录 |
 | `MODEL_SLUG` | 模型目录名 | 单模型运行时的输出目录名称 |
 | `TRAIN_MODE` | `lora` | `lora`或`full` |
 | `LOCAL_BATCH` | `32` | 每张卡的有效batch |
@@ -186,6 +187,7 @@ watch -n 2 rocm-smi --showuse --showmemuse
 python evaluate_model.py \
   --base-model /models/Qwen3-32B \
   --trained-model OUTPUT_ROOT/Qwen3-32B-LoRA/8gpu/final_model \
+  --dataset-dir /workspace/datasets/wikitext-103-raw-v1 \
   --train-mode lora \
   --split test \
   --seq-len 2048 \
@@ -246,8 +248,15 @@ chmod 777 /workspace/datasets/wikitext-103-raw-v1
 ls -lh /workspace/datasets/wikitext-103-raw-v1/
 ```
 
-应当看到4个`.parquet`文件。当前脚本的本地Parquet读取支持加入后，可通过
-`DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1`指定该目录。
+应当看到4个`.parquet`文件。`run_case.sh`会自动检测这个标准目录并让训练脚本
+直接读取本地文件，不会访问 Hugging Face。也可以显式设置：
+
+```bash
+export DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1
+```
+
+如果指定了`DATASET_DIR`但目录不存在，或者当前split所需文件缺失，程序会直接
+报告缺少的完整文件路径。
 
 ### 7.3 单进程在线下载数据集
 
@@ -292,6 +301,7 @@ cd /workspace
 mkdir -p /workspace/timing
 
 nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
   HF_HOME=/workspace/hf-cache \
   HF_DATASETS_CACHE=/workspace/hf-cache/datasets \
   HF_DATASETS_OFFLINE=1 \
