@@ -23,9 +23,10 @@ Kimi、Llama 等模型。
 
 ```text
 train_qwen.py                       训练入口与性能指标记录
-run_8gpu_case.sh                    单个8卡场景统一入口
+run_case.sh                         通用单场景执行器（由其他脚本调用）
+run_scaling.sh                      统一训练入口，支持任意GPU数量
+run_8gpu_case.sh                    旧8卡命令兼容入口
 run_8gpu_2000step_plan.sh           三个场景2000步串行测试
-run_scaling.sh                      1/2/4/8卡扩展测试
 merge_gpu_samples.py                合并GPU采样与训练指标
 summarize.py                        生成CSV汇总表
 evaluate_model.py                   对比基础模型与最终模型的测试集loss/PPL
@@ -80,8 +81,10 @@ mkdir -p timing
 nohup bash run_8gpu_2000step_plan.sh > timing/plan-launcher.log 2>&1 &
 ```
 
-单独运行某个场景时统一使用 `run_8gpu_case.sh`，这样训练指标、loss、GPU利用率
-和显存利用率都会自动生成。详细参数见操作手册。
+单独运行或进行1/2/4/8卡扩展测试都使用 `run_scaling.sh`。通过 `GPU_COUNTS`
+指定卡数，例如 `GPU_COUNTS=8` 只运行8卡，`GPU_COUNTS="1 2 4 8"` 依次运行
+四种卡数。所有卡数都会自动保存训练指标、loss、GPU采样、日志和最终模型。
+详细参数见操作手册。
 
 ## 输出
 

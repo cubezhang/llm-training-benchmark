@@ -7,7 +7,8 @@
 ```text
 /volumes/oss5/models/qwen-scaling/
 ├── train_qwen.py
-├── run_8gpu_case.sh
+├── run_case.sh
+├── run_scaling.sh
 ├── run_8gpu_2000step_plan.sh
 ├── merge_gpu_samples.py
 ├── summarize.py
@@ -149,7 +150,7 @@ rocm-smi --showproductname --showuse --showmemuse
 
 ```bash
 cd /workspace
-chmod +x run_8gpu_case.sh run_8gpu_2000step_plan.sh
+chmod +x run_case.sh run_scaling.sh run_8gpu_2000step_plan.sh
 ```
 
 后台启动：
@@ -188,7 +189,7 @@ watch -n 5 rocm-smi --showuse --showmemuse
 
 ## 4. 分别单独执行
 
-单独执行也调用 `run_8gpu_case.sh`，因此与串行脚本使用完全相同的流程：训练、GPU采样、合并 `metrics.json`。三个命令不要同时执行。
+单独执行和串行计划都调用 `run_scaling.sh`，因此使用完全相同的训练、GPU采样、模型保存和指标合并流程。三个命令不要同时执行。
 
 公共设置：
 
@@ -201,11 +202,10 @@ mkdir -p "${ROOT}"
 
 ```bash
 nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  bash /workspace/run_8gpu_case.sh \
-  scenario1-qwen3-32b-lora-8gpu \
-  /models/Qwen3-32B \
-  /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario1/Qwen3-32B-LoRA/8gpu \
-  lora 8 none 32.8 30018 \
+  GPU_COUNTS=8 MODELS=/models/Qwen3-32B MODEL_SLUG=Qwen3-32B-LoRA \
+  TRAIN_MODE=lora MICRO_BATCH=8 ACTIVE_PARAMETERS_B=32.8 \
+  OUTPUT_ROOT=${ROOT}/scenario1 PORT_BASE=30010 \
+  bash /workspace/run_scaling.sh \
   > ${ROOT}/scenario1-launcher.log 2>&1 &
 ```
 
@@ -213,11 +213,10 @@ nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
 
 ```bash
 nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  bash /workspace/run_8gpu_case.sh \
-  scenario2-qwen3-30b-a3b-lora-8gpu \
-  /models/Qwen3-30B-A3B \
-  /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario2/Qwen3-30B-A3B-LoRA/8gpu \
-  lora 8 none 3.3 30028 \
+  GPU_COUNTS=8 MODELS=/models/Qwen3-30B-A3B MODEL_SLUG=Qwen3-30B-A3B-LoRA \
+  TRAIN_MODE=lora MICRO_BATCH=8 ACTIVE_PARAMETERS_B=3.3 \
+  OUTPUT_ROOT=${ROOT}/scenario2 PORT_BASE=30020 \
+  bash /workspace/run_scaling.sh \
   > ${ROOT}/scenario2-launcher.log 2>&1 &
 ```
 
@@ -225,11 +224,10 @@ nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
 
 ```bash
 nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  bash /workspace/run_8gpu_case.sh \
-  scenario3-qwen3-32b-full-8gpu \
-  /models/Qwen3-32B \
-  /workspace/timing/qwen-three-scenarios-8gpu-2000steps/scenario3/Qwen3-32B-full/8gpu \
-  full 2 configs/zero3_bf16.json 32.8 30038 \
+  GPU_COUNTS=8 MODELS=/models/Qwen3-32B MODEL_SLUG=Qwen3-32B-full \
+  TRAIN_MODE=full MICRO_BATCH=2 DEEPSPEED_CONFIG=configs/zero3_bf16.json \
+  ACTIVE_PARAMETERS_B=32.8 OUTPUT_ROOT=${ROOT}/scenario3 PORT_BASE=30030 \
+  bash /workspace/run_scaling.sh \
   > ${ROOT}/scenario3-launcher.log 2>&1 &
 ```
 
@@ -296,7 +294,7 @@ step-1000 loss
 最终loss
 ```
 
-串行执行和单独执行都调用同一个 `run_8gpu_case.sh`，因此都会自动采样GPU利用率并写入 `metrics.json`，最终字段口径完全一致。
+串行执行和单独执行都调用同一个 `run_scaling.sh`，而它对每个GPU数量调用通用的 `run_case.sh`，因此都会自动采样GPU利用率并写入 `metrics.json`，最终字段口径完全一致。
 
 模型保存发生在训练计时结束之后，因此不会降低表中的训练吞吐量，也不会计入
 平均单步时间。运行前请为全参数 Qwen3-32B 最终权重额外预留充足磁盘空间。
