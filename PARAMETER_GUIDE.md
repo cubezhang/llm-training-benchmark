@@ -218,7 +218,38 @@ Cannot send a request, as the client has been closed
 这是数据集尚未缓存，多卡训练进程同时访问Hugging Face时发生的下载失败。应先停止
 训练，使用一个Python进程准备共享缓存。
 
-### 7.2 单进程下载数据集
+### 7.2 浏览器下载并上传服务器
+
+服务器无法连接 Hugging Face 时，在个人电脑浏览器中下载：
+
+- [train-00000-of-00002.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/train-00000-of-00002.parquet?download=true)
+- [train-00001-of-00002.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/train-00001-of-00002.parquet?download=true)
+- [validation-00000-of-00001.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/validation-00000-of-00001.parquet?download=true)
+- [test-00000-of-00001.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/test-00000-of-00001.parquet?download=true)
+
+在容器内创建接收目录：
+
+```bash
+mkdir -p /workspace/datasets/wikitext-103-raw-v1
+chmod 777 /workspace/datasets/wikitext-103-raw-v1
+```
+
+使用 MobaXterm、SFTP 或其他文件传输工具上传到宿主机：
+
+```text
+/volumes/oss5/models/qwen-scaling/datasets/wikitext-103-raw-v1/
+```
+
+容器内检查：
+
+```bash
+ls -lh /workspace/datasets/wikitext-103-raw-v1/
+```
+
+应当看到4个`.parquet`文件。当前脚本的本地Parquet读取支持加入后，可通过
+`DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1`指定该目录。
+
+### 7.3 单进程在线下载数据集
 
 以下命令全部在容器内执行：
 
@@ -254,7 +285,7 @@ PY
 
 只有看到`WikiText-103 cache prepared.`后才能切换离线模式。
 
-### 7.3 离线运行8卡10步检查
+### 7.4 离线运行8卡10步检查
 
 ```bash
 cd /workspace
@@ -282,7 +313,7 @@ nohup env \
   > /workspace/timing/qwen3-32b-lora-smoke-launcher.log 2>&1 &
 ```
 
-### 7.4 查看日志
+### 7.5 查看日志
 
 ```bash
 tail -f /workspace/timing/qwen3-32b-lora-smoke/Qwen3-32B-LoRA/8gpu/console.log
@@ -297,7 +328,7 @@ grep -nEi -B 10 -A 30 \
   head -200
 ```
 
-### 7.5 缓存位置与迁移
+### 7.6 缓存位置与迁移
 
 容器内缓存目录：
 

@@ -79,6 +79,29 @@ export HF_ENDPOINT=https://hf-mirror.com
 同时下载数据集失败，不要直接重新启动多卡训练。先在容器内使用单进程把三个数据集
 分片下载到共享缓存：
 
+如果服务器无法访问 Hugging Face，也可以在个人电脑浏览器中直接下载以下4个文件：
+
+- [train-00000-of-00002.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/train-00000-of-00002.parquet?download=true)
+- [train-00001-of-00002.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/train-00001-of-00002.parquet?download=true)
+- [validation-00000-of-00001.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/validation-00000-of-00001.parquet?download=true)
+- [test-00000-of-00001.parquet](https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-103-raw-v1/test-00000-of-00001.parquet?download=true)
+
+下载后上传到宿主机：
+
+```text
+/volumes/oss5/models/qwen-scaling/datasets/wikitext-103-raw-v1/
+```
+
+容器内对应：
+
+```text
+/workspace/datasets/wikitext-103-raw-v1/
+```
+
+本地 Parquet 加载方式见[参数操作手册](PARAMETER_GUIDE.md#72-浏览器下载并上传服务器)。
+
+如果服务器可以通过镜像访问 Hugging Face，也可以用以下单进程命令准备缓存：
+
 ```bash
 cd /workspace
 mkdir -p /workspace/hf-cache/datasets
