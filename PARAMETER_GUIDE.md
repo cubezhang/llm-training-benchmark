@@ -202,3 +202,125 @@ python evaluate_model.py \
 - `run_8gpu_case.sh`：当前三个场景的短命令预设，内部设置`GPU_COUNTS=8`后调用`run_scaling.sh`。
 - `run_8gpu_2000step_plan.sh`：三个固定场景的串行计划，内部也调用`run_scaling.sh`。
 - `run_200step_plan.sh`：200步计划，内部也调用`run_scaling.sh`。
+
+## 7. WikiText-103 下载失败与离线缓存
+
+### 7.1 典型现象
+
+训练刚启动就退出，并在`console.log`中出现以下内容之一：
+
+```text
+hf_hub_download
+httpx
+Cannot send a request, as the client has been closed
+```
+
+这是数据集尚未缓存，多卡训练进程同时访问Hugging Face时发生的下载失败。应先停止
+训练，使用一个Python进程准备共享缓存。
+
+### 7.2 单进程下载数据集
+
+以下命令全部在容器内执行：
+
+```bash
+cd /workspace
+mkdir -p /workspace/hf-cache/datasets
+
+export HF_ENDPOINT=https://hf-mirror.com
+export HF_HOME=/workspace/hf-cache
+export HF_DATASETS_CACHE=/workspace/hf-cache/datasets
+
+unset HF_DATASETS_OFFLINE
+unset HF_HUB_OFFLINE
+unset TRANSFORMERS_OFFLINE
+
+python3 - <<'PY'
+from datasets import load_dataset
+
+cache_dir = "/workspace/hf-cache/datasets"
+for split in ("train", "validation", "test"):
+    print("Downloading:", split)
+    dataset = load_dataset(
+        "Salesforce/wikitext",
+        "wikitext-103-raw-v1",
+        split=split,
+        cache_dir=cache_dir,
+    )
+    print(split, len(dataset))
+
+print("WikiText-103 cache prepared.")
+PY
+```
+
+只有看到`WikiText-103 cache prepared.`后才能切换离线模式。
+
+### 7.3 离线运行8卡10步检查
+
+```bash
+cd /workspace
+mkdir -p /workspace/timing
+
+nohup env \
+  HF_HOME=/workspace/hf-cache \
+  HF_DATASETS_CACHE=/workspace/hf-cache/datasets \
+  HF_DATASETS_OFFLINE=1 \
+  HF_HUB_OFFLINE=1 \
+  TRANSFORMERS_OFFLINE=1 \
+  GPU_COUNTS=8 \
+  MODELS=/models/Qwen3-32B \
+  MODEL_SLUG=Qwen3-32B-LoRA \
+  TRAIN_MODE=lora \
+  MICRO_BATCH=8 \
+  LOCAL_BATCH=32 \
+  ACTIVE_PARAMETERS_B=32.8 \
+  MAX_STEPS=10 \
+  WARMUP_STEPS=2 \
+  MEASURE_WINDOW=8 \
+  SAVE_FINAL_MODEL=0 \
+  OUTPUT_ROOT=/workspace/timing/qwen3-32b-lora-smoke \
+  bash /workspace/run_scaling.sh \
+  > /workspace/timing/qwen3-32b-lora-smoke-launcher.log 2>&1 &
+```
+
+### 7.4 查看日志
+
+```bash
+tail -f /workspace/timing/qwen3-32b-lora-smoke/Qwen3-32B-LoRA/8gpu/console.log
+```
+
+如果任务已经结束，不要只看日志最后十行。提取首次异常：
+
+```bash
+grep -nEi -B 10 -A 30 \
+  "traceback|error|exception|modulenotfound|runtimeerror|out of memory|failed" \
+  /workspace/timing/qwen3-32b-lora-smoke/Qwen3-32B-LoRA/8gpu/console.log | \
+  head -200
+```
+
+### 7.5 缓存位置与迁移
+
+容器内缓存目录：
+
+```text
+/workspace/hf-cache/
+```
+
+对应宿主机目录：
+
+```text
+/volumes/oss5/models/qwen-scaling/hf-cache/
+```
+
+缓存不提交到GitHub。需要迁移到另一台服务器时，在容器内打包：
+
+```bash
+cd /workspace
+tar -I zstd -cf wikitext-103-cache.tar.zst hf-cache/
+```
+
+目标服务器恢复：
+
+```bash
+cd /workspace
+tar -I zstd -xf wikitext-103-cache.tar.zst
+```

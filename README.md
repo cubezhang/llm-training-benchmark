@@ -73,6 +73,58 @@ cd /workspace
 export HF_ENDPOINT=https://hf-mirror.com
 ```
 
+### WikiText-103 下载失败
+
+如果日志出现 `hf_hub_download`、`httpx`、`Cannot send a request` 或多个训练进程
+同时下载数据集失败，不要直接重新启动多卡训练。先在容器内使用单进程把三个数据集
+分片下载到共享缓存：
+
+```bash
+cd /workspace
+mkdir -p /workspace/hf-cache/datasets
+
+export HF_ENDPOINT=https://hf-mirror.com
+export HF_HOME=/workspace/hf-cache
+export HF_DATASETS_CACHE=/workspace/hf-cache/datasets
+unset HF_DATASETS_OFFLINE HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
+
+python3 - <<'PY'
+from datasets import load_dataset
+
+cache_dir = "/workspace/hf-cache/datasets"
+for split in ("train", "validation", "test"):
+    dataset = load_dataset(
+        "Salesforce/wikitext",
+        "wikitext-103-raw-v1",
+        split=split,
+        cache_dir=cache_dir,
+    )
+    print(split, len(dataset))
+print("WikiText-103 cache prepared.")
+PY
+```
+
+下载成功后，在训练命令的 `nohup env` 后加入以下变量，强制所有训练进程只读
+本地缓存：
+
+```bash
+HF_HOME=/workspace/hf-cache \
+HF_DATASETS_CACHE=/workspace/hf-cache/datasets \
+HF_DATASETS_OFFLINE=1 \
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+```
+
+缓存位于宿主机的 `/volumes/oss5/models/qwen-scaling/hf-cache/`，不提交到Git。
+需要迁移时可在容器内执行：
+
+```bash
+cd /workspace
+tar -I zstd -cf wikitext-103-cache.tar.zst hf-cache/
+```
+
+完整离线启动示例见[参数操作手册](PARAMETER_GUIDE.md#7-wikitext-103-下载失败与离线缓存)。
+
 ## 运行8卡2000步串行计划
 
 ```bash
