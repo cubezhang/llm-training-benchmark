@@ -25,7 +25,7 @@ Kimi、Llama 等模型。
 train_qwen.py                       训练入口与性能指标记录
 run_case.sh                         通用单场景执行器（由其他脚本调用）
 run_scaling.sh                      统一训练入口，支持任意GPU数量
-run_8gpu_case.sh                    旧8卡命令兼容入口
+run_8gpu_case.sh                    当前三个场景的8卡短命令入口
 run_8gpu_2000step_plan.sh           三个场景2000步串行测试
 merge_gpu_samples.py                合并GPU采样与训练指标
 summarize.py                        生成CSV汇总表

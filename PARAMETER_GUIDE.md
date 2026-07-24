@@ -68,6 +68,29 @@ GPU_COUNTS="1 2 4 8" bash run_scaling.sh
 
 ## 2. 常用命令
 
+### 2.0 8卡快捷命令
+
+快捷脚本只保存三个当前场景的参数预设，内部仍然调用`run_scaling.sh`：
+
+```bash
+bash run_8gpu_case.sh qwen3-32b-lora
+bash run_8gpu_case.sh qwen3-30b-a3b-lora
+bash run_8gpu_case.sh qwen3-32b-full
+```
+
+第二个位置参数可以指定输出根目录：
+
+```bash
+bash run_8gpu_case.sh qwen3-32b-lora /workspace/timing/my-run
+```
+
+步数等参数仍通过环境变量覆盖，例如：
+
+```bash
+MAX_STEPS=10 WARMUP_STEPS=2 MEASURE_WINDOW=8 SAVE_FINAL_MODEL=0 \
+  bash run_8gpu_case.sh qwen3-32b-lora /workspace/timing/smoke
+```
+
 ### 2.1 Qwen3-32B LoRA，8卡10步检查
 
 ```bash
@@ -176,6 +199,6 @@ python evaluate_model.py \
 
 - `run_case.sh`：通用单场景执行器，负责torchrun、GPU采样、日志、状态和模型保存。
 - `run_scaling.sh`：唯一对外训练入口，循环模型和`GPU_COUNTS`并调用`run_case.sh`。
-- `run_8gpu_case.sh`：只为兼容旧命令保留，新任务不再使用。
+- `run_8gpu_case.sh`：当前三个场景的短命令预设，内部设置`GPU_COUNTS=8`后调用`run_scaling.sh`。
 - `run_8gpu_2000step_plan.sh`：三个固定场景的串行计划，内部也调用`run_scaling.sh`。
 - `run_200step_plan.sh`：200步计划，内部也调用`run_scaling.sh`。
