@@ -84,7 +84,7 @@ rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0
 
 ```bash
 docker run -d \
-  --name qwen-scaling-rocm \
+  --name llm-training-rocm \
   --device=/dev/kfd \
   --device=/dev/dri \
   --group-add video \
@@ -103,7 +103,7 @@ docker run -d \
 进入容器：
 
 ```bash
-docker exec -it qwen-scaling-rocm bash
+docker exec -it llm-training-rocm bash
 ```
 
 从这里开始，除非特别标明，后续命令全部在容器内执行：
@@ -127,8 +127,8 @@ python3 -c \
 以下两条在宿主机执行：
 
 ```bash
-docker start qwen-scaling-rocm
-docker exec -it qwen-scaling-rocm bash
+docker start llm-training-rocm
+docker exec -it llm-training-rocm bash
 ```
 
 进入容器后检查GPU：
@@ -151,14 +151,19 @@ rocm-smi --showproductname --showuse --showmemuse
 
 ```bash
 cd /workspace
-chmod +x run_case.sh run_scaling.sh run_8gpu_2000step_plan.sh
+chmod +x run_case.sh run_scaling.sh run_8gpu_case.sh run_8gpu_2000step_plan.sh
 ```
 
 后台启动：
 
 ```bash
 mkdir -p /workspace/timing
-nohup bash run_8gpu_2000step_plan.sh > timing/plan-launcher.log 2>&1 &
+nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  SAVE_FINAL_MODEL=1 \
+  ROOT=/workspace/timing/qwen-three-scenarios-8gpu-2000steps \
+  bash /workspace/run_8gpu_2000step_plan.sh \
+  > /workspace/timing/qwen-three-scenarios-8gpu-2000steps-launcher.log 2>&1 &
 ```
 
 脚本将按以下顺序执行：
@@ -202,34 +207,74 @@ mkdir -p "${ROOT}"
 ### 4.1 场景1：Qwen3-32B LoRA 8卡
 
 ```bash
-nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  GPU_COUNTS=8 MODELS=/models/Qwen3-32B MODEL_SLUG=Qwen3-32B-LoRA \
-  TRAIN_MODE=lora MICRO_BATCH=8 ACTIVE_PARAMETERS_B=32.8 \
-  OUTPUT_ROOT=${ROOT}/scenario1 PORT_BASE=30010 \
+nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  MAX_STEPS=2000 \
+  WARMUP_STEPS=100 \
+  MEASURE_WINDOW=1900 \
+  GPU_COUNTS=8 \
+  MODELS=/models/Qwen3-32B \
+  MODEL_SLUG=Qwen3-32B-LoRA \
+  TRAIN_MODE=lora \
+  MICRO_BATCH=8 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
+  ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
+  SAVE_FINAL_MODEL=1 \
+  OUTPUT_ROOT="${ROOT}/scenario1" \
+  PORT_BASE=30010 \
   bash /workspace/run_scaling.sh \
-  > ${ROOT}/scenario1-launcher.log 2>&1 &
+  > "${ROOT}/scenario1-launcher.log" 2>&1 &
 ```
 
 ### 4.2 场景2：Qwen3-30B-A3B LoRA 8卡
 
 ```bash
-nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  GPU_COUNTS=8 MODELS=/models/Qwen3-30B-A3B MODEL_SLUG=Qwen3-30B-A3B-LoRA \
-  TRAIN_MODE=lora MICRO_BATCH=8 ACTIVE_PARAMETERS_B=3.3 \
-  OUTPUT_ROOT=${ROOT}/scenario2 PORT_BASE=30020 \
+nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  MAX_STEPS=2000 \
+  WARMUP_STEPS=100 \
+  MEASURE_WINDOW=1900 \
+  GPU_COUNTS=8 \
+  MODELS=/models/Qwen3-30B-A3B \
+  MODEL_SLUG=Qwen3-30B-A3B-LoRA \
+  TRAIN_MODE=lora \
+  MICRO_BATCH=8 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
+  ACTIVE_PARAMETERS_B=3.3 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
+  SAVE_FINAL_MODEL=1 \
+  OUTPUT_ROOT="${ROOT}/scenario2" \
+  PORT_BASE=30020 \
   bash /workspace/run_scaling.sh \
-  > ${ROOT}/scenario2-launcher.log 2>&1 &
+  > "${ROOT}/scenario2-launcher.log" 2>&1 &
 ```
 
 ### 4.3 场景3：Qwen3-32B全参数 8卡
 
 ```bash
-nohup env MAX_STEPS=2000 WARMUP_STEPS=100 MEASURE_WINDOW=1900 \
-  GPU_COUNTS=8 MODELS=/models/Qwen3-32B MODEL_SLUG=Qwen3-32B-full \
-  TRAIN_MODE=full MICRO_BATCH=2 DEEPSPEED_CONFIG=configs/zero3_bf16.json \
-  ACTIVE_PARAMETERS_B=32.8 OUTPUT_ROOT=${ROOT}/scenario3 PORT_BASE=30030 \
+nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  MAX_STEPS=2000 \
+  WARMUP_STEPS=100 \
+  MEASURE_WINDOW=1900 \
+  GPU_COUNTS=8 \
+  MODELS=/models/Qwen3-32B \
+  MODEL_SLUG=Qwen3-32B-full \
+  TRAIN_MODE=full \
+  MICRO_BATCH=2 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
+  DEEPSPEED_CONFIG=configs/zero3_bf16.json \
+  ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
+  SAVE_FINAL_MODEL=1 \
+  OUTPUT_ROOT="${ROOT}/scenario3" \
+  PORT_BASE=30030 \
   bash /workspace/run_scaling.sh \
-  > ${ROOT}/scenario3-launcher.log 2>&1 &
+  > "${ROOT}/scenario3-launcher.log" 2>&1 &
 ```
 
 每个单独命令完成后都会生成：
@@ -246,7 +291,7 @@ final_model/
 `final_model/` 是最终训练成果。LoRA 场景保存 Adapter 和 tokenizer，加载时仍需
 对应的基础模型；全参数 ZeRO-3 场景保存聚合后的 BF16 模型权重和 tokenizer。
 默认不保存中间 checkpoint。如某次只做性能测试，在容器内执行任务前设置
-`SAVE_FINAL_MODEL=0`，或在`nohup env`后增加`SAVE_FINAL_MODEL=0`。
+`export SAVE_FINAL_MODEL=0`，或在`nohup env`后增加`SAVE_FINAL_MODEL=0`。
 
 ## 5. 汇总结果
 
@@ -257,9 +302,9 @@ cd /workspace
 ROOT=/workspace/timing/qwen-three-scenarios-8gpu-2000steps
 
 python summarize.py \
-  --runs-dir ${ROOT} \
-  --output ${ROOT}/summary.csv \
-  --table-output ${ROOT}/summary_table.csv \
+  --runs-dir "${ROOT}" \
+  --output "${ROOT}/summary.csv" \
+  --table-output "${ROOT}/summary_table.csv" \
   --theoretical-tflops-per-device 232.6528
 ```
 

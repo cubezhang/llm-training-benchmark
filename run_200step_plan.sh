@@ -9,7 +9,9 @@ export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${HF_HOME}/datasets}"
 export MAX_STEPS=200
 export WARMUP_STEPS=20
 export MEASURE_WINDOW=100
+export SEQ_LEN=2048
 export LOCAL_BATCH=32
+export SAVE_FINAL_MODEL=1
 export THEORETICAL_TFLOPS_PER_DEVICE="${THEORETICAL_TFLOPS_PER_DEVICE:-232.6528}"
 
 ROOT="${ROOT:-/workspace/timing/qwen-scenario1-scenario3-200steps}"
@@ -50,3 +52,4 @@ env \
 
 printf 'COMPLETE finished=%s\n' "$(date -Is)" > "${STATUS}"
 printf '\n===== PLAN COMPLETE %s =====\n' "$(date -Is)" >> "${LOG}"
+chmod -R a+rX "${ROOT}"

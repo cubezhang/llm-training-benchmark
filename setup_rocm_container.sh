@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAME="${CONTAINER_NAME:-qwen-scaling-rocm}"
+NAME="${CONTAINER_NAME:-llm-training-rocm}"
 IMAGE="${ROCM_IMAGE:-rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0}"
-PROJECT="/volumes/oss5/models/qwen-scaling"
+PROJECT="${PROJECT_DIR:-/volumes/oss5/models/qwen-scaling}"
 
 if ! docker inspect "${NAME}" >/dev/null 2>&1; then
   docker run -d \

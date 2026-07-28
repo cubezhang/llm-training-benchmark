@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 022
 
 export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 export HF_HOME="${HF_HOME:-/workspace/hf-cache}"
@@ -71,3 +72,4 @@ if [[ -n "${THEORETICAL_TFLOPS_PER_DEVICE:-${PEAK_TFLOPS:-}}" ]]; then
   summary_args+=(--theoretical-tflops-per-device "${THEORETICAL_TFLOPS_PER_DEVICE:-${PEAK_TFLOPS}}")
 fi
 "${summary_args[@]}"
+chmod -R a+rX "${OUTPUT_ROOT}"

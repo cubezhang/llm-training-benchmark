@@ -44,7 +44,7 @@ THREE_SCENARIO_8GPU_2000STEP_GUIDE.md 详细操作手册
 镜像：rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0
 项目目录：/volumes/oss5/models/qwen-scaling
 模型目录：/volumes/oss0/models
-容器名称：qwen-scaling-rocm
+容器名称：llm-training-rocm
 容器项目目录：/workspace
 容器模型目录：/models
 ```
@@ -156,8 +156,13 @@ tar -I zstd -cf wikitext-103-cache.tar.zst hf-cache/
 
 ```bash
 cd /workspace
-mkdir -p timing
-nohup bash run_8gpu_2000step_plan.sh > timing/plan-launcher.log 2>&1 &
+mkdir -p /workspace/timing
+nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  SAVE_FINAL_MODEL=1 \
+  ROOT=/workspace/timing/qwen-three-scenarios-8gpu-2000steps \
+  bash /workspace/run_8gpu_2000step_plan.sh \
+  > /workspace/timing/qwen-three-scenarios-8gpu-2000steps-launcher.log 2>&1 &
 ```
 
 单独运行或进行1/2/4/8卡扩展测试都使用 `run_scaling.sh`。通过 `GPU_COUNTS`
@@ -183,7 +188,7 @@ ZeRO-3模式保存聚合后的BF16权重。保存发生在性能计时结束之�
 如只做纯性能测试，可设置：
 
 ```bash
-SAVE_FINAL_MODEL=0
+export SAVE_FINAL_MODEL=0
 ```
 
 ## 汇总
@@ -204,13 +209,13 @@ LoRA训练完成后，在WikiText-103测试集上对比基础模型与最终Adap
 ```bash
 python evaluate_model.py \
   --base-model /models/Qwen3-32B \
-  --trained-model /workspace/timing/qwen3-32b-lora-8gpu-2000steps/final_model \
+  --trained-model /workspace/timing/qwen3-32b-lora-scaling/Qwen3-32B-LoRA/8gpu/final_model \
   --dataset-dir /workspace/datasets/wikitext-103-raw-v1 \
   --train-mode lora \
   --split test \
   --seq-len 2048 \
   --max-eval-tokens 131072 \
-  --output /workspace/timing/qwen3-32b-lora-8gpu-2000steps/evaluation.json
+  --output /workspace/timing/qwen3-32b-lora-scaling/Qwen3-32B-LoRA/8gpu/evaluation.json
 ```
 
 `perplexity_improvement_percent > 0` 且 `improved=true` 表示最终模型在未参与训练的

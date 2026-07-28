@@ -6,7 +6,9 @@ cd /workspace
 export MAX_STEPS=2000
 export WARMUP_STEPS=100
 export MEASURE_WINDOW=1900
+export SEQ_LEN=2048
 export LOCAL_BATCH=32
+export SAVE_FINAL_MODEL=1
 export GPU_COUNTS=8
 export SKIP_COMPLETED=1
 export THEORETICAL_TFLOPS_PER_DEVICE="${THEORETICAL_TFLOPS_PER_DEVICE:-232.6528}"
@@ -67,3 +69,4 @@ python summarize.py \
 
 printf 'COMPLETE all-scenarios finished=%s\n' "$(date -Is)" > "${STATUS}"
 printf '\n===== ALL COMPLETE %s =====\n' "$(date -Is)" >> "${LOG}"
+chmod -R a+rX "${ROOT}"

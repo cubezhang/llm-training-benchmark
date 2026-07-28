@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCENARIO="${1:-qwen3-32b-lora}"
 OUTPUT_ROOT="${2:-/workspace/timing/${SCENARIO}}"
+THEORETICAL_TFLOPS_PER_DEVICE="${THEORETICAL_TFLOPS_PER_DEVICE:-232.6528}"
 
 case "${SCENARIO}" in
   qwen3-32b-lora)
@@ -45,5 +46,6 @@ exec env \
   MICRO_BATCH="${MICRO_BATCH}" \
   ACTIVE_PARAMETERS_B="${ACTIVE_PARAMETERS_B}" \
   DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG}" \
+  THEORETICAL_TFLOPS_PER_DEVICE="${THEORETICAL_TFLOPS_PER_DEVICE}" \
   OUTPUT_ROOT="${OUTPUT_ROOT}" \
   bash /workspace/run_scaling.sh

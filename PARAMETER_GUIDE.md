@@ -26,13 +26,25 @@ export HF_ENDPOINT=https://hf-mirror.com
 只运行8卡：
 
 ```bash
-GPU_COUNTS=8 bash run_scaling.sh
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+GPU_COUNTS=8 \
+MODELS=/models/Qwen3-32B \
+MODEL_SLUG=Qwen3-32B-LoRA \
+TRAIN_MODE=lora \
+THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
+bash /workspace/run_scaling.sh
 ```
 
 依次运行1、2、4、8卡：
 
 ```bash
-GPU_COUNTS="1 2 4 8" bash run_scaling.sh
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+GPU_COUNTS="1 2 4 8" \
+MODELS=/models/Qwen3-32B \
+MODEL_SLUG=Qwen3-32B-LoRA \
+TRAIN_MODE=lora \
+THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
+bash /workspace/run_scaling.sh
 ```
 
 脚本会根据卡数自动设置：
@@ -74,22 +86,24 @@ GPU_COUNTS="1 2 4 8" bash run_scaling.sh
 快捷脚本只保存三个当前场景的参数预设，内部仍然调用`run_scaling.sh`：
 
 ```bash
-bash run_8gpu_case.sh qwen3-32b-lora
-bash run_8gpu_case.sh qwen3-30b-a3b-lora
-bash run_8gpu_case.sh qwen3-32b-full
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 bash /workspace/run_8gpu_case.sh qwen3-32b-lora
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 bash /workspace/run_8gpu_case.sh qwen3-30b-a3b-lora
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 bash /workspace/run_8gpu_case.sh qwen3-32b-full
 ```
 
 第二个位置参数可以指定输出根目录：
 
 ```bash
-bash run_8gpu_case.sh qwen3-32b-lora /workspace/timing/my-run
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
+  bash /workspace/run_8gpu_case.sh qwen3-32b-lora /workspace/timing/my-run
 ```
 
 步数等参数仍通过环境变量覆盖，例如：
 
 ```bash
+DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
 MAX_STEPS=10 WARMUP_STEPS=2 MEASURE_WINDOW=8 SAVE_FINAL_MODEL=0 \
-  bash run_8gpu_case.sh qwen3-32b-lora /workspace/timing/smoke
+  bash /workspace/run_8gpu_case.sh qwen3-32b-lora /workspace/timing/smoke
 ```
 
 ### 2.1 Qwen3-32B LoRA，8卡10步检查
@@ -97,12 +111,16 @@ MAX_STEPS=10 WARMUP_STEPS=2 MEASURE_WINDOW=8 SAVE_FINAL_MODEL=0 \
 ```bash
 mkdir -p /workspace/timing
 nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
   GPU_COUNTS=8 \
   MODELS=/models/Qwen3-32B \
   MODEL_SLUG=Qwen3-32B-LoRA \
   TRAIN_MODE=lora \
   MICRO_BATCH=8 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
   ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
   MAX_STEPS=10 \
   WARMUP_STEPS=2 \
   MEASURE_WINDOW=8 \
@@ -116,12 +134,16 @@ nohup env \
 
 ```bash
 nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
   GPU_COUNTS="1 2 4 8" \
   MODELS=/models/Qwen3-32B \
   MODEL_SLUG=Qwen3-32B-LoRA \
   TRAIN_MODE=lora \
   MICRO_BATCH=8 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
   ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
   MAX_STEPS=2000 \
   WARMUP_STEPS=100 \
   MEASURE_WINDOW=1900 \
@@ -135,13 +157,17 @@ nohup env \
 
 ```bash
 nohup env \
+  DATASET_DIR=/workspace/datasets/wikitext-103-raw-v1 \
   GPU_COUNTS="4 8" \
   MODELS=/models/Qwen3-32B \
   MODEL_SLUG=Qwen3-32B-full \
   TRAIN_MODE=full \
   MICRO_BATCH=2 \
+  LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
   DEEPSPEED_CONFIG=configs/zero3_bf16.json \
   ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
   MAX_STEPS=2000 \
   WARMUP_STEPS=100 \
   MEASURE_WINDOW=1900 \
@@ -176,23 +202,28 @@ summary_table.csv
 ## 4. 查看状态
 
 ```bash
-tail -f OUTPUT_ROOT/MODEL_SLUG/8gpu/console.log
-cat OUTPUT_ROOT/MODEL_SLUG/8gpu/status.txt
+OUTPUT_ROOT=/workspace/timing/qwen3-32b-lora-scaling
+MODEL_SLUG=Qwen3-32B-LoRA
+
+tail -f "${OUTPUT_ROOT}/${MODEL_SLUG}/8gpu/console.log"
+cat "${OUTPUT_ROOT}/${MODEL_SLUG}/8gpu/status.txt"
 watch -n 2 rocm-smi --showuse --showmemuse
 ```
 
 ## 5. 最终模型效果评测
 
 ```bash
+OUTPUT_ROOT=/workspace/timing/qwen3-32b-lora-scaling
+
 python evaluate_model.py \
   --base-model /models/Qwen3-32B \
-  --trained-model OUTPUT_ROOT/Qwen3-32B-LoRA/8gpu/final_model \
+  --trained-model "${OUTPUT_ROOT}/Qwen3-32B-LoRA/8gpu/final_model" \
   --dataset-dir /workspace/datasets/wikitext-103-raw-v1 \
   --train-mode lora \
   --split test \
   --seq-len 2048 \
   --max-eval-tokens 131072 \
-  --output OUTPUT_ROOT/Qwen3-32B-LoRA/8gpu/evaluation.json
+  --output "${OUTPUT_ROOT}/Qwen3-32B-LoRA/8gpu/evaluation.json"
 ```
 
 `perplexity_improvement_percent > 0`且`improved=true`表示最终模型在测试集上优于基础模型。
@@ -313,7 +344,9 @@ nohup env \
   TRAIN_MODE=lora \
   MICRO_BATCH=8 \
   LOCAL_BATCH=32 \
+  SEQ_LEN=2048 \
   ACTIVE_PARAMETERS_B=32.8 \
+  THEORETICAL_TFLOPS_PER_DEVICE=232.6528 \
   MAX_STEPS=10 \
   WARMUP_STEPS=2 \
   MEASURE_WINDOW=8 \

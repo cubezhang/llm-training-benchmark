@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 022
 
 if (( $# != 9 )); then
   echo "Usage: $0 LABEL MODEL OUTPUT_DIR TRAIN_MODE GPU_COUNT MICRO_BATCH DEEPSPEED ACTIVE_PARAMS_B PORT" >&2
@@ -136,6 +137,8 @@ python merge_gpu_samples.py \
   --metrics "${OUTPUT_DIR}/metrics.json" \
   --samples "${SAMPLES}" \
   --devices "${DEVICES}" >> "${LOG_FILE}" 2>&1
+
+chmod -R a+rX "${OUTPUT_DIR}"
 
 printf 'COMPLETE %s finished=%s\n' "${LABEL}" "$(date -Is)" > "${STATUS_FILE}"
 printf '===== DONE %s %s =====\n' "${LABEL}" "$(date -Is)" >> "${LOG_FILE}"
